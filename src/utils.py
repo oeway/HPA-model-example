@@ -21,7 +21,7 @@ def get_pretrained_pytorch_model_transform():
                 [CombineColors(),
                  ToTensor(),
                  Normalize(mean=[0.485, 0.456, 0.406],
-                           std=[0.229, 0.224, 0.225]
+                           std=[0.229, 0.224, 0.225])
                 ])
 
 def get_dataset(image_dir, label_file, train=True, idxs=None, pretrained=False):
