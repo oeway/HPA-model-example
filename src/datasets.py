@@ -38,18 +38,18 @@ class TrainImageDataset(Dataset):
         img_red = img_name + '_red.png'
         img_blue = img_name + '_blue.png'
         img_green = img_name + '_green.png'
-        img_yellow = img_name + '_yellow.png'
+        # img_yellow = img_name + '_yellow.png'
         img_red = img_as_float(io.imread(os.path.join(self.image_dir, img_red)))
         img_blue = img_as_float(io.imread(os.path.join(self.image_dir, img_blue)))
         img_green = img_as_float(io.imread(os.path.join(self.image_dir, img_green)))
-        img_yellow = img_as_float(io.imread(os.path.join(self.image_dir, img_yellow)))
+        # img_yellow = img_as_float(io.imread(os.path.join(self.image_dir, img_yellow)))
         labels = self.labels.iloc[idx, 2:].values
         labels = labels.astype('int')
         sample = {'image_id': img_name,
                   'image_red': img_red,
                   'image_blue': img_blue,
                   'image_green': img_green,
-                  'image_yellow': img_yellow,
+                #   'image_yellow': img_yellow,
                   'labels': labels}
 
         if self.transform:
@@ -84,16 +84,16 @@ class TestImageDataset(Dataset):
         img_red = img_name + '_red.png'
         img_blue = img_name + '_blue.png'
         img_green = img_name + '_green.png'
-        img_yellow = img_name + '_yellow.png'
+        # img_yellow = img_name + '_yellow.png'
         img_red = img_as_float(io.imread(os.path.join(self.image_dir, img_red)))
         img_blue = img_as_float(io.imread(os.path.join(self.image_dir, img_blue)))
         img_green = img_as_float(io.imread(os.path.join(self.image_dir, img_green)))
-        img_yellow = img_as_float(io.imread(os.path.join(self.image_dir, img_yellow)))
+        # img_yellow = img_as_float(io.imread(os.path.join(self.image_dir, img_yellow)))
         sample = {'image_id': img_name,
                   'image_red': img_red,
                   'image_blue': img_blue,
                   'image_green': img_green,
-                  'image_yellow': img_yellow,
+                #   'image_yellow': img_yellow,
                   'labels' : np.zeros(28)}
 
         if self.transform:

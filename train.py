@@ -68,13 +68,14 @@ def main():
                                     args.train_csv_path,
                                     val_split=VALIDATION_SPLIT,
                                     n_subsample=args.nSubsample,
+                                    pretrained=args.pretrained,
                                     **kwargs)
 
     if args.load:
         print("Loading network: {}".format(args.load))
         net = torch.load(args.load)
     else:
-        net = get_network(args.pretrained)
+        net = get_network(network_name=args.network_name, pretrained=args.pretrained)
 
     if args.data_parallel:
         net = torch.nn.DataParallel(net)

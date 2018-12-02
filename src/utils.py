@@ -5,7 +5,8 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .rather_small_net import Net
+from .rather_small_net import RatherSmallNet
+from .resnet_152 import Resnet152
 from .loss_functions import f1_loss, binary_cross_entropy_with_logits
 from .transforms import *
 from .datasets import TrainImageDataset, TestImageDataset
@@ -15,8 +16,19 @@ def get_transform():
                     [CombineColors(),
                      ToTensor()])
 
-def get_dataset(image_dir, label_file, train=True, idxs=None):
-    transform = get_transform()
+def get_pretrained_pytorch_model_transform(): 
+    return transforms.Compose(
+                [CombineColors(),
+                 ToTensor(),
+                 Normalize(mean=[0.485, 0.456, 0.406],
+                           std=[0.229, 0.224, 0.225]
+                ])
+
+def get_dataset(image_dir, label_file, train=True, idxs=None, pretrained=False):
+    if pretrained:
+        transform = get_pretrained_pytorch_model_transform()
+    else:
+        transform = get_transform()
     if train:
         dataset = TrainImageDataset(
                          image_dir=image_dir,
@@ -45,6 +57,7 @@ def get_train_test_split(train_image_dir,
                          train_image_csv,
                          val_split,
                          n_subsample,
+                         pretrained,
                          **kwargs
                          ):
     with open(train_image_csv, 'r') as f:
@@ -58,8 +71,8 @@ def get_train_test_split(train_image_dir,
         train_idxs = arr[:int(n_images * (1 - val_split))]
         dev_idxs = arr[int(n_images * (1 - val_split)):]
 
-    trainset = get_dataset(train_image_dir, train_image_csv, idxs=train_idxs)
-    devset = get_dataset(train_image_dir, train_image_csv, idxs=dev_idxs)
+    trainset = get_dataset(train_image_dir, train_image_csv, idxs=train_idxs, pretrained=pretrained)
+    devset = get_dataset(train_image_dir, train_image_csv, idxs=dev_idxs, pretrained=pretrained)
 
     # trainset = []
     # testset = []
@@ -75,12 +88,11 @@ def get_train_test_split(train_image_dir,
     devloader = DataLoader(devset, shuffle=False, **kwargs)
     return trainloader, devloader
 
-def get_network(pretrained=False):
-    if pretrained:
-        pass # can't pass pretrained net yet
-    else:
-        net = Net()
-        return net
+def get_network(network_name="rather_small_net", pretrained=False):
+    if network_name == "rather_small_net":
+        return RatherSmallNet()
+    elif network_name == "resnet_152":
+        return Resnet152()
 
 def get_loss_function(lf='bce'):
     if lf == 'bce':

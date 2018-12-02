@@ -9,9 +9,9 @@ class CombineColors(object):
         img_red = sample['image_red']
         img_blue = sample['image_blue']
         img_green = sample['image_green']
-        img_yellow = sample['image_yellow']
+        # img_yellow = sam/ple['image_yellow']
         labels = sample['labels']
-        image = np.dstack((img_red, img_blue, img_green, img_yellow))
+        image = np.dstack((img_red, img_green, img_blue))#, img_yellow))
 
         return {'image': image, 'labels': labels, 'image_id': img_name}
 

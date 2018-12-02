@@ -1,8 +1,8 @@
 import torch
 
-class Net(torch.nn.Module):
+class RatherSmallNet(torch.nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(RatherSmallNet, self).__init__()
         self.conv1 = torch.nn.Conv2d(4, 6, 5) # 4 channel in, 6 channels out, filter size 5
         self.pool = torch.nn.MaxPool2d(2, 2) # 6 channel in, 6 channels out, filter size 2, stride 2
         self.conv2 = torch.nn.Conv2d(6, 16, 5) # 6 channel in, 16 channels out, filter size 5
