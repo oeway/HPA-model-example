@@ -1,0 +1,57 @@
+apiVersion: "kubeflow.org/v1alpha2"
+kind: "PyTorchJob"
+metadata:
+  name: "pytorch-gloo-hpa"
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: gcr.io/optfit-kaggle/distributed-training:gloo
+              imagePullPolicy: Always
+              securityContext:
+                privileged: true
+                capabilities:
+                  add:
+                    - SYS_ADMIN
+              lifecycle:
+                postStart:
+                  exec:
+                    command: ["gcsfuse", "--implicit-dirs", "-o", "nonempty", "--key-file", "/var/service-account.json", "human-protein-atlas-data", "/mnt/hpa-data"]
+                preStop:
+                  exec:
+                    command: ["fusermount", "-u", "/mnt/hpa-data"]
+              command: ["python", "-u", "train.py", "-n", "dist_basicnet_gpu", "-d", "hpa", "--train-images-path", "/mnt/hpa-data/train_images", "--test-images-path", "/mnt/hpa-data/test_images", "--nEpochs", "1", "--batchSz", "256", "--distributed", "True", "--use-cuda", "yes"]
+              resources:
+                limits:
+                  nvidia.com/gpu: 1
+    Worker:
+      replicas: 3
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: gcr.io/optfit-kaggle/distributed-training:gloo
+              imagePullPolicy: Always
+              resources:
+                limits:
+                  nvidia.com/gpu: 1
+              securityContext:
+                privileged: true
+                capabilities:
+                  add:
+                    - SYS_ADMIN
+              lifecycle:
+                postStart:
+                  exec:
+                    command: ["gcsfuse", "--implicit-dirs", "-o", "nonempty", "--key-file", "/var/service-account.json", "human-protein-atlas-data", "/mnt/hpa-data"]
+                preStop:
+                  exec:
+                    command: ["fusermount", "-u", "/mnt/hpa-data"]
+              command: ["python", "-u", "train.py", "-n", "dist_basicnet_gpu", "-d", "hpa", "--train-images-path", "/mnt/hpa-data/train_images", "--test-images-path="/mnt/hpa-data/test_images", "--nEpochs", "1", "--batchSz", "256", "--distributed", "True", "--use-cuda", "yes"]
+

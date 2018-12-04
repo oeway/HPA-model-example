@@ -1,4 +1,6 @@
 import torch
+import torch.distributed as dist
+from torch.utils.data import DataLoader
 
 # base libraries
 import argparse
@@ -9,6 +11,8 @@ import csv
 
 # internals
 from src import *
+from src.ddp import DistributedDataParallel, init_print
+from src.ddp import partition_dataset, average_gradients
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VALIDATION_SPLIT = 0.10
@@ -16,6 +20,7 @@ VALIDATION_SPLIT = 0.10
 default_train_images = os.path.join(BASE_DIR, 'data/train_images')
 default_test_images = os.path.join(BASE_DIR, 'data/test_images')
 default_csv = os.path.join(BASE_DIR, 'data/train.csv')
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -32,22 +37,39 @@ def main():
     parser.add_argument('--nEpochs', type=int, default=10) # 300
     parser.add_argument('--sEpoch', type=int, default=1)
     parser.add_argument('--nSubsample', type=int, default=0)
-    parser.add_argument('--use-cuda', type=str, default='no')
+    parser.add_argument('--cuda', type=bool, default=False)
     parser.add_argument('--nGPU', type=int, default=0)
     parser.add_argument('--save')
     parser.add_argument('--seed', type=int, default=50)
     parser.add_argument('--opt', type=str, default='sgd', choices=('sgd', 'adam', 'rmsprop'))
     parser.add_argument('--crit', type=str, default='f1', choices=('bce', 'f1'))
+    parser.add_argument('--distributed', type=bool, default=False, 
+                        help='use distributed data parallel while training')
+    parser.add_argument('--backend', choices=['mpi', 'gloo'], default='gloo',
+                        help="message passing backend for distributed training (default 'gloo')")
     args = parser.parse_args()
 
-    args.cuda = args.use_cuda == 'yes' and torch.cuda.is_available()
-    if args.cuda and args.nGPU == 0:
-        nGPU = 1
-    else:
-        nGPU = args.nGPU
+    if args.distributed and not args.backend:
+        raise argparse.ArgumentTypeError(
+            "'--backend' required when '--distributed=True'.")
 
-    print("using cuda ", args.cuda)
-    print("torch.cuda.is_available() ", torch.cuda.is_available())
+    if args.distributed:
+        dist.init_process_group(backend=args.backend)
+        init_print(dist.get_rank(), dist.get_world_size())
+
+    if args.cuda:
+        print("\n======= CUDA INFO =======")
+        print("CUDA Availibility: {}".format(torch.cuda.is_available()))
+        if torch.cuda.is_available():
+            print("CUDA Device Name: {}".format(torch.cuda.get_device_name(0)))
+            print("CUDA Version: {}".format(torch.version.cuda))
+            if args.nGPU == 0:
+                args.nGPU = 1
+        else:
+            print("Using CPU")
+            args.cuda == False
+        print("=========================\n")
+
     args.save = args.save or 'work/%s/%s' % (args.network_name, args.dataset_name)
     setproctitle.setproctitle(args.save)
 
@@ -59,16 +81,19 @@ def main():
         shutil.rmtree(args.save)
     os.makedirs(args.save, exist_ok=True)
 
-    # kwargs = {'num_workers': 4 * nGPU, 'pin_memory': True, 'batch_size': args.batchSz} if args.cuda and nGPU > 0 else {'num_workers': 4, 'batch_size': args.batchSz}
+    trainset, devset = get_train_test_split(
+                            args.train_images_path,
+                            args.train_csv_path,
+                            val_split=VALIDATION_SPLIT,
+                            n_subsample=args.nSubsample)
 
-    kwargs = {'batch_size': args.batchSz}
-
-    trainLoader, devLoader = get_train_test_split(
-                                    args.train_images_path,
-                                    args.train_csv_path,
-                                    val_split=VALIDATION_SPLIT,
-                                    n_subsample=args.nSubsample,
-                                    **kwargs)
+    if args.distributed:
+        trainLoader, devLoader, args.batchSz = partition_dataset(trainset, devset, args.batchSz)
+    else:
+        # kwargs = {'num_workers': 4 * args.nGPU, 'pin_memory': True, 'batch_size': args.batchSz} if args.cuda and args.nGPU > 0 else {'num_workers': 4, 'batch_size': args.batchSz}
+        kwargs = {'batch_size': args.batchSz}
+        trainLoader = DataLoader(trainset, shuffle=True, **kwargs)
+        devLoader = DataLoader(devset, shuffle=False, **kwargs)
 
     if args.load:
         print("Loading network: {}".format(args.load))
@@ -76,7 +101,9 @@ def main():
     else:
         net = get_network(args.pretrained)
 
-    if args.data_parallel:
+    if args.distributed:
+        net = DistributedDataParallel(net)
+    elif args.data_parallel:
         net = torch.nn.DataParallel(net)
 
     print('  + Number of params: {}'.format(sum([p.data.nelement() for p in net.parameters()])))
@@ -91,7 +118,7 @@ def main():
     elif args.opt == 'rmsprop':
         optimizer = torch.optim.RMSprop(net.parameters(), weight_decay=1e-4)
     else:
-        raise ModuleNotFoundError('optimiser not found')
+        raise ValueError("Optimizer '{}' not recognized".format(args.opt))
 
     criterion = get_loss_function(args.crit)
 
@@ -108,6 +135,7 @@ def main():
     testF.close()
     predict_dataloader = get_prediction_dataloader(args.test_images_path, **kwargs)
     predict(args, net, predict_dataloader)
+
 
 def train(args, epoch, net, trainLoader, criterion, optimizer, trainF):
     net.train()
@@ -127,6 +155,8 @@ def train(args, epoch, net, trainLoader, criterion, optimizer, trainF):
         outputs = net(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
+        if args.distributed:
+            average_gradients(net)
         optimizer.step()
         nProcessed += len(data)
         if args.multilabel:
@@ -159,6 +189,7 @@ def train(args, epoch, net, trainLoader, criterion, optimizer, trainF):
                 loss.data[0], err))
             trainF.write('{},{},{}\n'.format(partialEpoch, loss.data[0], err))
         trainF.flush()
+
 
 def test(args, epoch, net, devLoader, criterion, optimizer, testF):
     net.eval()
@@ -208,6 +239,7 @@ def test(args, epoch, net, devLoader, criterion, optimizer, testF):
             testF.write('{},{},{}\n'.format(epoch, test_loss, err))
         testF.flush()
 
+
 def predict(args, net, dataloader):
     net.eval()
     csv_path = os.path.join(args.save, 'test-images-predictions.csv')
@@ -225,6 +257,7 @@ def predict(args, net, dataloader):
                 preds = positive_predictions(predictions)
                 predictions_writer.writerows(list(zip(image_ids, preds)))
 
+
 def adjust_opt(optAlg, optimizer, epoch):
     if optAlg == 'sgd':
         if epoch < 150: lr = 1e-1
@@ -234,6 +267,7 @@ def adjust_opt(optAlg, optimizer, epoch):
 
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
+
 
 if __name__ == '__main__':
     main()

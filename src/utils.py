@@ -26,8 +26,7 @@ def get_dataset(image_dir, label_file, train=True, idxs=None):
     else:
         dataset = TestImageDataset(
                          image_dir=image_dir,
-                         transform=transform,
-                         idxs=idxs)
+                         transform=transform)
     return dataset
 
 def get_prediction_dataloader(image_dir, **kwargs):
@@ -71,9 +70,9 @@ def get_train_test_split(train_image_dir,
     # for i in tqdm(test_idxs):
     #     sample = dataset[i]
     #     testset.append(sample)
-    trainloader = DataLoader(trainset, shuffle=True, **kwargs)
-    devloader = DataLoader(devset, shuffle=False, **kwargs)
-    return trainloader, devloader
+    # trainloader = DataLoader(trainset, shuffle=True, **kwargs)
+    # devloader = DataLoader(devset, shuffle=False, **kwargs)
+    return trainset, devset
 
 def get_network(pretrained=False):
     if pretrained:
