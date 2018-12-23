@@ -1,4 +1,5 @@
 import torch
+import torch.distributed as dist
 
 # base libraries
 import argparse
@@ -14,6 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 default_train_images = os.path.join(BASE_DIR, 'data/train_images')
 default_csv = os.path.join(BASE_DIR, 'data/train.csv')
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -34,6 +36,8 @@ def main():
     parser.add_argument('--seed', type=int, default=50)
     parser.add_argument('--opt', type=str, default='sgd', choices=('sgd', 'adam', 'rmsprop'))
     parser.add_argument('--crit', type=str, default='bce', choices=('bce', 'f1'))
+    parser.add_argument('--distributed', type=bool, default=False,
+                        help='If True, use distributed data parallel training (default, False).')
     args = parser.parse_args()
 
     if args.use_cuda == 'yes' and not torch.cuda.is_available():
@@ -50,6 +54,10 @@ def main():
         nGPU = 1
     else:
         nGPU = args.nGPU
+
+    if args.distributed:
+        dist.init_process_group(backend='gloo')
+        init_print(dist.get_rank(), dist.get_world_size())
 
     print("using cuda ", args.cuda)
 
@@ -75,7 +83,9 @@ def main():
     else:
         net = get_network(args.network_name, args.pretrained)
 
-    if args.data_parallel:
+    if args.distributed:
+        net = DistributedDataParallel(net)
+    elif args.data_parallel:
         net = torch.nn.DataParallel(net)
 
     print('  + Number of params: {}'.format(sum([p.data.nelement() for p in net.parameters()])))
@@ -107,6 +117,7 @@ def main():
     trainF.close()
     testF.close()
 
+
 def train(args, epoch, net, trainLoader, criterion, optimizer, trainF):
     net.train()
     nProcessed = 0
@@ -125,6 +136,8 @@ def train(args, epoch, net, trainLoader, criterion, optimizer, trainF):
         outputs = net(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
+        if args.distributed:
+            average_gradients(net)
         optimizer.step()
         nProcessed += len(data)
         pred = outputs.data.gt(0.5)
@@ -147,6 +160,7 @@ def train(args, epoch, net, trainLoader, criterion, optimizer, trainF):
             loss.item(), acc, prec, rec, tp, fp, fn, tn))
         trainF.write('{},{},{},{},{}\n'.format(partialEpoch, loss.item(), acc, prec, rec))
         trainF.flush()
+
 
 def test(args, epoch, net, devLoader, criterion, optimizer, testF):
     net.eval()
@@ -186,6 +200,7 @@ def test(args, epoch, net, devLoader, criterion, optimizer, testF):
         testF.write('{},{},{},{},{}\n'.format(epoch, test_loss, acc, prec, rec))
         testF.flush()
 
+
 def adjust_opt(optAlg, optimizer, epoch):
     if optAlg == 'sgd':
         if epoch < 150: lr = 1e-1
@@ -196,10 +211,12 @@ def adjust_opt(optAlg, optimizer, epoch):
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
+
 def unfreeze_weights(pretrained, model, epoch):
     if (pretrained) and epoch > (100):
         for param in model.features.parameters():
             param.require_grad = True
+
 
 if __name__ == '__main__':
     main()

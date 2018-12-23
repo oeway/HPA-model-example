@@ -9,6 +9,8 @@ from .nets import Net
 from .loss_functions import f1_loss
 from .transforms import *
 from .datasets import TrainImageDataset, TestImageDataset
+from .ddp import partition_dataset
+
 
 def get_transforms(pretrained=False):
     if pretrained:
@@ -50,6 +52,7 @@ def get_transforms(pretrained=False):
 
     return transform
 
+
 def get_dataset(args, idxs=None, train=True):
     if args.pretrained:
         using_pil = True
@@ -79,13 +82,15 @@ def get_dataset(args, idxs=None, train=True):
 
     return dataset
 
+
 def get_testloader(args, **kwargs):
     testset = get_dataset(args, train=False)
     testloader = DataLoader(testset, shuffle=False, **kwargs)
 
     return testloader
 
-def get_train_test_split(args, val_split=0.10, **kwargs):
+
+def get_train_test_split(args, val_split=0.10, distributed=False, **kwargs):
     n_subsample = args.nSubsample
 
     with open(args.train_csv_path, 'r') as f:
@@ -102,10 +107,14 @@ def get_train_test_split(args, val_split=0.10, **kwargs):
     trainset = get_dataset(args, idxs=train_idxs)
     devset = get_dataset(args, idxs=dev_idxs)
 
-    trainloader = DataLoader(trainset, shuffle=True, **kwargs)
-    devloader = DataLoader(devset, shuffle=False, **kwargs)
+    if distributed:
+        trainLoader, devLoader, args.batchSz = partition_dataset(trainset, devset, args.batchSz)
+    else:
+        trainloader = DataLoader(trainset, shuffle=True, **kwargs)
+        devloader = DataLoader(devset, shuffle=False, **kwargs)
 
     return trainloader, devloader
+
 
 def get_network(network_name, pretrained=False, lf='bce'):
     if network_name not in ['vgg16']:
@@ -136,6 +145,7 @@ def get_network(network_name, pretrained=False, lf='bce'):
 
         return net
 
+
 def get_loss_function(lf='bce'):
     if lf == 'bce':
 
@@ -147,6 +157,7 @@ def get_loss_function(lf='bce'):
 
     else:
         raise ModuleNotFoundError('loss function not found')
+
 
 def positive_predictions(predictions):
     positives = []
@@ -161,6 +172,7 @@ def positive_predictions(predictions):
         positives.append(' '.join(output))
 
     return positives
+
 
 def predict(args, net, dataLoader, predF):
     net.eval()
