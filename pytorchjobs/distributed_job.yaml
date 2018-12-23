@@ -1,0 +1,50 @@
+apiVersion: "kubeflow.org/v1alpha2"
+kind: "PyTorchJob"
+metadata:
+  name: "pytorch-gloo-hpa"
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: gcr.io/optfit-kaggle/human-protein-atlas:gloo
+              imagePullPolicy: Always
+              securityContext:
+                privileged: true
+                capabilities:
+                  add:
+                    - SYS_ADMIN
+              lifecycle:
+                postStart:
+                  exec:
+                    command: ["gcsfuse", "--implicit-dirs", "-o", "nonempty", "--key-file", "/var/service-account.json", "human-protein-atlas-data", "/mnt/hpa-data"]
+                preStop:
+                  exec:
+                    command: ["fusermount", "-u", "/mnt/hpa-data"]
+              command: ["python", "-u", "train.py", "-n", "dist_basicnet", "-d", "hpa", "--nEpochs", "1", "--train-images-path", "/mnt/hpa-data/train_images", "--test-images-path", "/mnt/hpa-data/test_images", "--distributed", "True", "--batchSz", "256", "--train-csv-path", "/mnt/hpa-data/train.csv"]
+    Worker:
+      replicas: 3
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: gcr.io/optfit-kaggle/human-protein-atlas:gloo
+              imagePullPolicy: Always
+              securityContext:
+                privileged: true
+                capabilities:
+                  add:
+                    - SYS_ADMIN
+              lifecycle:
+                postStart:
+                  exec:
+                    command: ["gcsfuse", "--implicit-dirs", "-o", "nonempty", "--key-file", "/var/service-account.json", "human-protein-atlas-data", "/mnt/hpa-data"]
+                preStop:
+                  exec:
+                    command: ["fusermount", "-u", "/mnt/hpa-data"]
+              command: ["python", "-u", "train.py", "-n", "dist_basicnet", "-d", "hpa", "--nEpochs", "1", "--train-images-path", "/mnt/hpa-data/train_images", "--test-images-path", "/mnt/hpa-data/test_images", "--distributed", "True", "--batchSz", "256", "--train-csv-path", "/mnt/hpa-data/train.csv"]
