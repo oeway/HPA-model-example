@@ -6,3 +6,5 @@ data/train_images/*
 data/test_images/*
 work
 .idea/
+
+gcs-service-account.json

@@ -1,7 +1,19 @@
-data/train_images/*
-data/test_images/*
-hpakf
+# Python caching
+__pycache__/
+*.pyc
+
+# Jupyter notebooks
+.ipynb_checkpoints/
 *.ipynb
 
-docker
-pytorchjobs
+# VS Code
+.vscode/
+
+# Project files and directories
+.boto
+data/
+docker/
+gcs-service-account.json
+hpakf/
+pytorchjobs/
+work/

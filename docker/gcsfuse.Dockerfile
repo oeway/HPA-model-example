@@ -1,7 +1,9 @@
 FROM pytorch/pytorch:0.4_cuda9_cudnn7
 
 RUN conda install pandas scikit-learn scikit-image tqdm
-RUN pip install setproctitle
+RUN pip install setproctitle google-cloud-storage gsutil
+
+RUN apt update && apt install rsync --yes
 
 ENV GCSFUSE_REPO=gcsfuse-xenial
 RUN apt-get update && apt-get install --yes --no-install-recommends \
@@ -16,8 +18,6 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
   && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN mkdir /mnt/hpa-data
-ADD ./train.py /home/hpa/train.py
-ADD ./service-account.json /var/service-account.json
-ADD ./src /home/hpa/src
+COPY . /home/human-protein-atlas
 
-WORKDIR /home/hpa/
+WORKDIR /home/human-protein-atlas/
