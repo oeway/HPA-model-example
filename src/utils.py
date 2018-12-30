@@ -110,10 +110,10 @@ def get_train_test_split(args, val_split=0.10, distributed=False, **kwargs):
     if distributed:
         trainLoader, devLoader, args.batchSz = partition_dataset(trainset, devset, args.batchSz)
     else:
-        trainloader = DataLoader(trainset, shuffle=True, **kwargs)
-        devloader = DataLoader(devset, shuffle=False, **kwargs)
+        trainLoader = DataLoader(trainset, shuffle=True, **kwargs)
+        devLoader = DataLoader(devset, shuffle=False, **kwargs)
 
-    return trainloader, devloader
+    return trainLoader, devLoader
 
 
 def get_network(network_name, pretrained=False, lf='bce'):
