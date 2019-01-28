@@ -99,7 +99,7 @@ def main():
         net = net.cuda()
 
     if args.opt == 'sgd':
-        optimizer = torch.optim.SGD(net.parameters(), lr=1e-3, momentum=0.9, weight_decay=1e-4)
+        optimizer = torch.optim.SGD(net.parameters(), lr=2e-3, momentum=0.9, weight_decay=1e-4)
     elif args.opt == 'adam':
         optimizer = torch.optim.Adam(net.parameters(), weight_decay=1e-4)
     elif args.opt == 'rmsprop':
@@ -114,7 +114,7 @@ def main():
 
     criterion = get_loss_function(args.crit, lf_args)
 
-    sched_args = [10, 1e-4, 1.1, .5, -1]
+    sched_args = [10, 2e-4, 1.1, .5, -1]
     scheduler = CosineAnnealingRestartsLR(optimizer, *sched_args)
 
     trainF = open(os.path.join(args.save, 'train.csv'), 'a')
