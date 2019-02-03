@@ -9,7 +9,7 @@ RUN conda install -c conda-forge scikit-image
 # reinstall torchvision so that it pulls in the latest version of torch
 RUN conda install -y -f torchvision
 
-RUN mkdir /workspace/job
-COPY . /workspace/job/
+RUN mkdir /workspace/
+COPY . /workspace/
 
-ENTRYPOINT ["/workspace/job/docker_entrypoint.sh"]
+ENTRYPOINT ["/workspace/train.sh"]

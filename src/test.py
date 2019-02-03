@@ -10,10 +10,9 @@ import datetime
 import pytz
 
 # internals
-from src import *
+from hpanets import *
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CREDENTIALS = os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON_FILE']
 BRANCH_NAME = os.environ['BRANCH'] if('BRANCH' in os.environ) else "probably-master"
 
 default_test_images = os.path.join(BASE_DIR, 'data/test_images')

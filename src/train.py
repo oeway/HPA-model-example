@@ -8,7 +8,7 @@ import shutil
 import csv
 
 # internals
-from src import *
+from hpanets import *
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
