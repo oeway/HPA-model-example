@@ -5,3 +5,4 @@ data/train_images/*
 data/test_images/*
 work
 .idea/
+.DS_Store

@@ -3,17 +3,14 @@ import torch
 # base libraries
 import argparse
 import os
-import setproctitle
+# import setproctitle
 import shutil
 import csv
-from google.cloud.storage import Client
 
 # internals
 from src import *
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CREDENTIALS = os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON_FILE']
-CLOUD_STORAGE_BUCKET = os.environ['CLOUD_STORAGE_BUCKET'] if('CLOUD_STORAGE_BUCKET' in os.environ) else ""
 
 default_train_images = os.path.join(BASE_DIR, 'data/train_images')
 default_csv = os.path.join(BASE_DIR, 'data/train.csv')
@@ -69,7 +66,7 @@ def main():
 
     args.save = args.save or 'work/%s/%s' % \
                                 (args.network_name, args.dataset_name)
-    setproctitle.setproctitle(args.save)
+    # setproctitle.setproctitle(args.save)
 
     torch.manual_seed(args.seed)
     if args.cuda:
@@ -99,7 +96,7 @@ def main():
         net = net.cuda()
 
     if args.opt == 'sgd':
-        optimizer = torch.optim.SGD(net.parameters(), lr=2e-3, momentum=0.9, weight_decay=1e-4)
+        optimizer = torch.optim.SGD(net.parameters(), lr=1e-3, momentum=0.9, weight_decay=1e-4)
     elif args.opt == 'adam':
         optimizer = torch.optim.Adam(net.parameters(), weight_decay=1e-4)
     elif args.opt == 'rmsprop':
@@ -114,7 +111,7 @@ def main():
 
     criterion = get_loss_function(args.crit, lf_args)
 
-    sched_args = [10, 2e-4, 1.1, .5, -1]
+    sched_args = [10, 1e-4, 1.1, .5, -1]
     scheduler = CosineAnnealingRestartsLR(optimizer, *sched_args)
 
     trainF = open(os.path.join(args.save, 'train.csv'), 'a')
@@ -132,17 +129,6 @@ def main():
     trainF.close()
     testF.close()
 
-    if len(CLOUD_STORAGE_BUCKET) != 0:
-        storage_client = Client.from_service_account_json(CREDENTIALS)
-        bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
-        all_files = [name for name in os.listdir(args.save) \
-                            if os.path.isfile(os.path.join(args.save, name))]
-        if len(all_files) > 0:
-            print("uploading weights...")
-            for file in all_files:
-                blob = bucket.blob(os.path.join(args.save, file))
-                blob.upload_from_filename(os.path.join(args.save, file))
-            print('upload complete')
 
 def train(args, epoch, net, trainLoader, criterion, optimizer, trainF):
     net.train()

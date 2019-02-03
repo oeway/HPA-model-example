@@ -3,19 +3,17 @@ import torch
 # base libraries
 import argparse
 import os
-import setproctitle
+# import setproctitle
 import shutil
 import csv
 import datetime
 import pytz
-from google.cloud.storage import Client
 
 # internals
 from src import *
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CREDENTIALS = os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON_FILE']
-CLOUD_STORAGE_BUCKET = os.environ['CLOUD_STORAGE_BUCKET'] if('CLOUD_STORAGE_BUCKET' in os.environ) else ""
 BRANCH_NAME = os.environ['BRANCH'] if('BRANCH' in os.environ) else "probably-master"
 
 default_test_images = os.path.join(BASE_DIR, 'data/test_images')
@@ -40,8 +38,8 @@ def main():
 
     args.save = args.save or 'work/%s/%s' % \
                                 (args.network_name, args.dataset_name)
-    setproctitle.setproctitle('work/%s/%s-test' % \
-                                (args.network_name, args.dataset_name))
+    # setproctitle.setproctitle('work/%s/%s-test' % \
+    #                             (args.network_name, args.dataset_name))
 
     if not os.path.exists(args.save):
         raise ValueError('save directory not found')
@@ -74,14 +72,6 @@ def main():
     predict(args, net, testLoader, predF)
 
     predF.close
-
-    if len(CLOUD_STORAGE_BUCKET) != 0:
-        storage_client = Client.from_service_account_json(CREDENTIALS)
-        print('client authenticated')
-        bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
-        blob = bucket.blob(predict_csv_path)
-
-        blob.upload_from_filename(predict_csv_path)
 
 def load_model(args, net):
     load_path = args.load
