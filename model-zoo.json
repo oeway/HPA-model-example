@@ -4,7 +4,7 @@
   "author": "Gordon MacMillan",
   "citeAs": "",
   "email": "",
-  "source": "https://github.com/DMLSG/human-protein-atlas",
+  "source": "https://github.com/oeway/HPA-model-example",
   "docker": "",
   "models": ["resnet34", "resnet50", "resnet101", "resnet152"],
   "description": "",
